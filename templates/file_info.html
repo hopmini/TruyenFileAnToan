@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Thông tin File - {{ file.name }} - Ứng Dụng Truyền File An Toàn{% endblock %}
+
+{% block content %}
+<div class="file-info-container">
+    <div class="file-info-box">
+        <h2 class="file-info-title"><i class="fas fa-file-alt"></i> Thông Tin File</h2>
+        
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label"><i class="fas fa-file-signature"></i> Tên File:</span>
+                <span class="info-value">{{ file.name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="fas fa-weight-hanging"></i> Kích Thước:</span>
+                <span class="info-value">{{ file.size|filesizeformat }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="fas fa-calendar-alt"></i> Ngày tải lên:</span>
+                <span class="info-value">{{ file.upload_time }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label"><i class="fas fa-user-circle"></i> Chủ sở hữu:</span>
+                <span class="info-value">{{ owner_name }}</span>
+            </div>
+            <div class="info-item full-width">
+                <span class="info-label"><i class="fas fa-share-alt"></i> Chia sẻ với:</span>
+                <span class="info-value">
+                    {% if shared_with_names %}
+                        {{ shared_with_names | join(', ') }}
+                    {% else %}
+                        Không có
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-item full-width">
+                <span class="info-label"><i class="fas fa-fingerprint"></i> Mã SHA-256 (Gốc):</span>
+                <span id="originalHash" class="hash-value">{{ file.hash }}</span>
+            </div>
+            <div id="currentHashContainer" class="info-item full-width hidden">
+                <span class="info-label"><i class="fas fa-fingerprint"></i> Mã SHA-256 (Hiện tại):</span>
+                <span id="currentHash" class="hash-value"></span>
+            </div>
+            <div id="verificationResultContainer" class="info-item full-width hidden">
+                <span class="info-label"><i class="fas fa-check-circle"></i> Kết quả kiểm tra:</span>
+                <span id="verificationResult" class="info-value"></span>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('download', file_id=file.id) }}" class="btn btn-download">
+                <i class="fas fa-download"></i> Tải File Về
+            </a>
+            <button id="verifyBtn" class="btn btn-verify">
+                <i class="fas fa-check-circle"></i> Kiểm Tra Toàn Vẹn
+            </button>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Quay lại
+            </a>
+        </div>
+        
+        <div id="verifyStatus" class="status-message"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const socket = io();
+    const verifyBtn = document.getElementById('verifyBtn');
+    const verifyStatus = document.getElementById('verifyStatus');
+    const fileId = "{{ file.id }}"; // Lấy file ID từ Jinja2
+    const originalHashElement = document.getElementById('originalHash');
+    const currentHashElement = document.getElementById('currentHash');
+    const currentHashContainer = document.getElementById('currentHashContainer');
+    const verificationResultElement = document.getElementById('verificationResult');
+    const verificationResultContainer = document.getElementById('verificationResultContainer');
+
+    function showMessage(element, message, type) {
+        element.innerHTML = message;
+        element.className = `status-message ${type}`;
+        element.classList.remove('hidden');
+    }
+
+    verifyBtn.addEventListener('click', function() {
+        showMessage(verifyStatus, '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra tính toàn vẹn...', 'info');
+        currentHashContainer.classList.add('hidden');
+        verificationResultContainer.classList.add('hidden');
+        socket.emit('verify_file', { file_id: fileId });
+    });
+
+    socket.on('verification_result', (data) => {
+        if (data.success) {
+            showMessage(verifyStatus, `<i class="fas fa-check-circle"></i> ${data.message}`, 'success');
+            verificationResultElement.textContent = 'Khớp';
+            verificationResultElement.classList.remove('text-danger');
+            verificationResultElement.classList.add('text-success');
+
+        } else {
+            showMessage(verifyStatus, `<i class="fas fa-times-circle"></i> ${data.message}`, 'danger');
+            verificationResultElement.textContent = 'Không khớp';
+            verificationResultElement.classList.remove('text-success');
+            verificationResultElement.classList.add('text-danger');
+        }
+
+        if (data.current_hash) {
+            currentHashElement.textContent = data.current_hash;
+            currentHashContainer.classList.remove('hidden');
+        }
+        verificationResultContainer.classList.remove('hidden');
+    });
+</script>
+{% endblock %}

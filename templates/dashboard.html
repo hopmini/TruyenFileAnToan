@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Bảng điều khiển - Ứng Dụng Truyền File An Toàn{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h2><i class="fas fa-tachometer-alt"></i> Bảng điều khiển</h2>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">
+            <i class="fas fa-upload"></i> Tải file lên
+        </a>
+    </div>
+    
+    {% if files %}
+    <div class="file-list">
+        <h3><i class="fas fa-folder-open"></i> Danh sách file của bạn</h3>
+        
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tên file</th>
+                        <th>Kích thước</th>
+                        <th>Ngày tải lên</th>
+                        <th>Người sở hữu</th>
+                        <th>Chia sẻ với</th>
+                        <th>Trạng thái</th> {# Thêm cột này #}
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in files %}
+                    <tr>
+                        <td>{{ file.name }}</td>
+                        <td>{{ file.size|filesizeformat }}</td>
+                        <td>{{ file.upload_time }}</td>
+                        <td>{{ users[file.owner]['name'] if file.owner in users else file.owner }}</td>
+                        <td>
+                            {% if file.shared_with %}
+                                {% for shared_user_id in file.shared_with %}
+                                    {{ users[shared_user_id]['name'] if shared_user_id in users else shared_user_id }}{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                    Không có
+                                {% endfor %}
+                            {% else %}
+                                Không có
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if session['username'] == file.owner %}
+                                <span class="badge badge-owner"><i class="fas fa-user"></i> Của bạn</span>
+                            {% elif session['username'] in file.shared_with %}
+                                <span class="badge badge-shared"><i class="fas fa-share-alt"></i> Được chia sẻ</span>
+                            {% else %}
+                                <span class="badge badge-unknown">Không rõ</span> {# Trường hợp này không nên xảy ra nếu logic lọc đúng #}
+                            {% endif %}
+                        </td>
+                        <td class="actions">
+                            <a href="{{ url_for('download', file_id=file.id) }}" class="btn btn-action btn-download" title="Tải xuống">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            <a href="{{ url_for('file_info', file_id=file.id) }}" class="btn btn-action btn-info" title="Xem chi tiết">
+                                <i class="fas fa-info-circle"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <p>Bạn chưa có file nào. Hãy tải file lên để bắt đầu!</p>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">
+            <i class="fas fa-upload"></i> Tải file đầu tiên
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

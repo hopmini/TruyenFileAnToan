@@ -1,0 +1,15 @@
+{
+    "f482c7d6d9bb32a75c05c50b9312c72d": {
+        "id": "f482c7d6d9bb32a75c05c50b9312c72d",
+        "name": "test.txt",
+        "stored_name": "20250604154349324121_testtxt",
+        "size": 70,
+        "hash": "29882d6e55d3f83f85b3b17d276349f53946cb50bfdf83ab07b3c94404e2c707",
+        "upload_time": "2025-06-04 15:43:49",
+        "owner": "hop1234",
+        "shared_with": [
+            "admin",
+            "testuser"
+        ]
+    }
+}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Tải file lên - Ứng Dụng Truyền File An Toàn{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <div class="upload-box">
+        <h2 class="upload-title"><i class="fas fa-cloud-upload-alt"></i> Tải File Lên</h2>
+        <p class="upload-hint">Kéo thả file vào đây hoặc click để chọn file</p>
+        <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" name="file" required class="hidden-input">
+                <label for="fileInput" class="btn btn-select-file">
+                    <i class="fas fa-folder-open"></i> Chọn File
+                </label>
+                <span id="fileNameDisplay" class="file-name-display">Chưa có file nào được chọn.</span>
+            </div>
+            <div class="file-limits">(Tối đa 50MB)</div>
+            
+            {% if users %} {# users ở đây là những user KHÁC user hiện tại #}
+            <div class="form-group share-options">
+                <label><i class="fas fa-share-alt"></i> Chia sẻ với:</label>
+                <div class="shared-users-grid">
+                    {% for username, user_data in users.items() %}
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="shared_users" value="{{ username }}">
+                            <span class="checkmark"></span> {{ user_data['name'] }} ({{ username }})
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <p class="no-share-users">Không có người dùng nào khác để chia sẻ.</p>
+            {% endif %}
+            
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-upload"></i> Tải lên
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('fileInput');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadBox = document.querySelector('.upload-box');
+
+        // Hiển thị tên file đã chọn
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                fileNameDisplay.textContent = this.files[0].name;
+            } else {
+                fileNameDisplay.textContent = 'Chưa có file nào được chọn.';
+            }
+        });
+
+        // Xử lý kéo thả file
+        uploadBox.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+
+        uploadBox.addEventListener('dragleave', function() {
+            this.classList.remove('dragover');
+        });
+
+        uploadBox.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files; // Gán file vào input
+                fileNameDisplay.textContent = e.dataTransfer.files[0].name;
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ứng Dụng Truyền File An Toàn</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <i class="fas fa-file-shield logo"></i>
+            <h1>Ứng Dụng Truyền File An Toàn</h1>
+            <p class="subtitle">Kiểm tra tính toàn vẹn bằng SHA-256</p>
+        </div>
+        
+        <div class="upload-section">
+            <div class="upload-box" id="dropZone">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <h2><i class="fas fa-upload"></i> Tải File Lên</h2>
+                <p class="upload-hint">Kéo thả file vào đây hoặc click để chọn file</p>
+                <input type="file" id="fileInput" class="file-input">
+                <button id="uploadBtn" class="btn btn-upload">
+                    <i class="fas fa-upload"></i> Chọn File
+                </button>
+                <div class="file-limits">(Tối đa 50MB)</div>
+                <div id="uploadStatus" class="status-message"></div>
+                <div id="progressBar" class="progress-bar hidden">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+            
+            <div id="fileInfo" class="file-info hidden">
+                <div class="info-header">
+                    <i class="fas fa-file-alt"></i>
+                    <h3>Thông Tin File</h3>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label"><i class="fas fa-file-signature"></i> Tên File:</span>
+                        <span id="filename" class="info-value"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label"><i class="fas fa-weight-hanging"></i> Kích Thước:</span>
+                        <span id="filesize" class="info-value"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label"><i class="fas fa-calendar-alt"></i> Thời Gian:</span>
+                        <span id="filetime" class="info-value"></span>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label"><i class="fas fa-fingerprint"></i> Mã SHA-256:</span>
+                        <span id="filehash" class="hash-value"></span>
+                    </div>
+                    <div id="serverHashContainer" class="info-item full-width hidden">
+                        <span class="info-label"><i class="fas fa-server"></i> Mã SHA-256 Server:</span>
+                        <span id="serverHash" class="hash-value"></span>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <a id="downloadLink" class="btn btn-download" href="#" target="_blank">
+                        <i class="fas fa-download"></i> Tải File Về
+                    </a>
+                    <button id="verifyBtn" class="btn btn-verify">
+                        <i class="fas fa-check-circle"></i> Kiểm Tra Toàn Vẹn
+                    </button>
+                </div>
+                
+                <div id="verifyStatus" class="status-message"></div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Ứng dụng được phát triển bởi <strong>Hợp Nguyễn</strong> - Bản quyền © 2023</p>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentFile = null;
+        
+        // Xử lý chọn file
+        document.getElementById('uploadBtn').addEventListener('click', function() {
+            document.getElementById('fileInput').click();
+        });
+        
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+        
+        // Xử lý kéo thả file
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', function() {
+            this.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                handleFileSelection(e.dataTransfer.files[0]);
+            }
+        });
+        
+        function handleFileSelection(file) {
+            currentFile = file;
+            
+            // Hiển thị thông tin file trước khi upload
+            document.getElementById('filename').textContent = file.name;
+            document.getElementById('filesize').textContent = formatBytes(file.size);
+            document.getElementById('filetime').textContent = new Date().toLocaleString();
+            
+            // Ẩn thông tin hash server nếu có
+            document.getElementById('serverHashContainer').classList.add('hidden');
+            
+            // Bắt đầu upload
+            uploadFile(file);
+        }
+        
+        function uploadFile(file) {
+            if (!file) {
+                showMessage('uploadStatus', 'Vui lòng chọn file trước khi tải lên', 'error');
+                return;
+            }
+            
+            // Kiểm tra kích thước file
+            if (file.size > 50 * 1024 * 1024) {
+                showMessage('uploadStatus', 'File quá lớn (tối đa 50MB)', 'error');
+                return;
+            }
+            
+            showMessage('uploadStatus', '<i class="fas fa-spinner fa-spin"></i> Đang tải file lên...', 'info');
+            document.getElementById('progressBar').classList.remove('hidden');
+            
+            const reader = new FileReader();
+            reader.onloadstart = function() {
+                updateProgressBar(0);
+            };
+            reader.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    updateProgressBar(percent);
+                }
+            };
+            reader.onload = function(e) {
+                updateProgressBar(100);
+                const fileData = e.target.result;
+                
+                // Gửi file lên server
+                socket.emit('gui_file', {
+                    ten_file: file.name,
+                    du_lieu_file: fileData
+                });
+            };
+            reader.onerror = function() {
+                showMessage('uploadStatus', '<i class="fas fa-exclamation-circle"></i> Lỗi đọc file', 'error');
+                document.getElementById('progressBar').classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function verifyFile() {
+            const filename = document.getElementById('filename').textContent;
+            const filehash = document.getElementById('filehash').textContent;
+            
+            if (!filename || !filehash) {
+                showMessage('verifyStatus', 'Không có thông tin file để kiểm tra', 'error');
+                return;
+            }
+            
+            showMessage('verifyStatus', '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra tính toàn vẹn...', 'info');
+            
+            // Gửi yêu cầu xác minh lên server
+            socket.emit('xac_minh_file', {
+                ten_file: filename,
+                hash_sha256: filehash
+            });
+        }
+        
+        function updateProgressBar(percent) {
+            const progressFill = document.querySelector('.progress-fill');
+            progressFill.style.width = `${percent}%`;
+        }
+        
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.className = `status-message ${type}`;
+        }
+        
+        // Định dạng kích thước file
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+        
+        // Gắn sự kiện cho nút kiểm tra
+        document.getElementById('verifyBtn').addEventListener('click', verifyFile);
+        
+        // Xử lý sự kiện từ server
+        socket.on('hoan_tat_gui', (data) => {
+            showMessage('uploadStatus', '<i class="fas fa-check-circle"></i> Tải file lên thành công!', 'success');
+            
+            // Cập nhật thông tin file
+            document.getElementById('filename').textContent = data.ten_file;
+            document.getElementById('filesize').textContent = formatBytes(data.kich_thuoc);
+            document.getElementById('filehash').textContent = data.hash_sha256;
+            document.getElementById('filetime').textContent = data.ngay_gio;
+            document.getElementById('downloadLink').href = data.duong_dan_tai;
+            
+            // Hiển thị phần thông tin file
+            document.getElementById('fileInfo').classList.remove('hidden');
+            document.getElementById('progressBar').classList.add('hidden');
+        });
+        
+        socket.on('loi_gui_file', (data) => {
+            showMessage('uploadStatus', `<i class="fas fa-times-circle"></i> ${data.thong_bao}`, 'error');
+            document.getElementById('progressBar').classList.add('hidden');
+        });
+        
+        socket.on('ket_qua_xac_minh', (data) => {
+            showMessage('verifyStatus', data.thong_bao, data.thanh_cong ? 'success' : 'error');
+            
+            // Hiển thị hash từ server nếu có
+            if (data.hash_server) {
+                document.getElementById('serverHash').textContent = data.hash_server;
+                document.getElementById('serverHashContainer').classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

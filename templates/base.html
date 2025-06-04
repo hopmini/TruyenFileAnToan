@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ứng Dụng Truyền File An Toàn{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <a href="{{ url_for('home') }}" class="app-logo-link">
+                    <i class="fas fa-file-shield logo"></i>
+                    <div>
+                        <h1>Ứng Dụng Truyền File An Toàn</h1>
+                        <p class="subtitle">Kiểm tra tính toàn vẹn bằng SHA-256</p>
+                    </div>
+                </a>
+            </div>
+            
+            {% if 'username' in session and users %}
+            <div class="user-controls">
+                <span class="user-greeting">Xin chào, <strong>{{ users[session['username']]['name'] if session['username'] in users else session['username'] }}</strong></span>
+                <nav class="main-nav">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-nav"><i class="fas fa-home"></i> Trang chủ</a>
+                    <a href="{{ url_for('upload') }}" class="btn btn-nav"><i class="fas fa-upload"></i> Tải lên</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-logout"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
+                </nav>
+            </div>
+            {% else %}
+            <div class="auth-links">
+                <a href="{{ url_for('login') }}" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Đăng nhập</a>
+                <a href="{{ url_for('register') }}" class="btn btn-secondary"><i class="fas fa-user-plus"></i> Đăng ký</a>
+            </div>
+            {% endif %}
+        </header>
+        
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages-container">
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </main>
+        
+        <footer class="footer">
+            <p>Ứng dụng được phát triển bởi <strong>Hợp Nguyễn</strong> - Bản quyền © 2023</p>
+        </footer>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
